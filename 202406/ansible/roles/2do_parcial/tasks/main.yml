@@ -1,0 +1,52 @@
+# tasks file for 2do_parcial
+
+- debug:
+    msg: "Tareas del 2do Parcial"
+
+
+# Tareas para crear estructura de directorios
+- name: Crear directorio base /tmp/2do_parcial
+  file:
+    path: /tmp/2do_parcial
+    state: directory
+    mode: '0755'
+
+- name: Crear subdirectorio alumno
+  file:
+    path: /tmp/2do_parcial/alumno
+    state: directory
+    mode: '0755'
+
+- name: Crear subdirectorio equipo
+  file:
+    path: /tmp/2do_parcial/equipo
+    state: directory
+    mode: '0755'
+
+
+- name: Crear datos_alumno.txt
+  template:
+    src: datos_alumno.txt.j2
+    dest: /tmp/2do_parcial/alumno/datos_alumno.txt
+
+- name: Crear datos_equipo.txt
+  template:
+    src: datos_equipo.txt.j2
+    dest: /tmp/2do_parcial/equipo/datos_equipo.txt
+
+# Crear el grupo "2PSupervisores"
+- name: Crear grupo 2PSupervisores
+  become: yes
+  group:
+    name: 2PSupervisores
+    state: present
+
+
+# Configurar sudoers para permitir que los usuarios del grupo "2PSupervisores" no necesiten contraseña
+- name: Configurar sudoers para el grupo 2PSupervisores
+  lineinfile:
+    path: /etc/sudoers
+    regexp: '^%2PSupervisores'
+    line: '%2PSupervisores ALL=(ALL) NOPASSWD: ALL'
+    validate: '/usr/sbin/visudo -cf %s'
+

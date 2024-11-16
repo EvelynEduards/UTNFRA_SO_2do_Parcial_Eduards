@@ -1,0 +1,12 @@
+---
+- hosts: all
+  become: yes  # Agrega esto para que todas las tareas se ejecuten con privilegios de superusuario
+  tasks:
+    - name: "Ejecutar 2do Parcial"
+      include_role:
+        name: 2do_parcial
+
+    - name: "Otra tarea"
+      debug:
+        msg: "Despues de la ejecucion del rol"
+

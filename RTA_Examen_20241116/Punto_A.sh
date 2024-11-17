@@ -1,126 +1,64 @@
 #!/bin/bash
-TIMESTAMP=$(date +%Y%m%d)
-PUNTO="A"
 
-# --- 
-clear
-echo "Se espera ver: "
-echo "Discos de 1G y 2G"
-echo "vg_datos -> lv_docker=5MB"
-echo "vg_datos -> lv_workareas=1.5G"
-echo "vg_temp  -> lv_swap=512MB"
-echo 
+# Definir los discos
+DISK1="/dev/sdc"    # Disco de 2 GB
+DISK2="/dev/sdd"    # Disco de 1 GB
 
-# --- Particionar los discos
-echo "Particionando los discos sdc y sdd..."
-
-# Particionar /dev/sdc
-sudo fdisk /dev/sdc <<EOF
+# Preparar los discos (creación de particiones)
+echo "Preparando discos"
+sudo fdisk $DISK1 <<EOF
 n
 p
-1
 
 
+t
+8E
 w
 EOF
 
-# Particionar /dev/sdd
-sudo fdisk /dev/sdd <<EOF
+sudo fdisk $DISK2 <<EOF
 n
 p
-1
 
 
+t
+82
 w
 EOF
 
-echo "Discos particionados: sdc1 y sdd1"
-echo
+# Inicializar los discos como volúmenes físicos (PV)
+sudo pvcreate $DISK1 $DISK2
 
-# --- Crear Volúmenes Físicos (PVs)
-echo "Creando volúmenes físicos (PVs)..."
-sudo pvcreate /dev/sdc1 /dev/sdd1
-echo "Volúmenes físicos creados"
-echo
+# Crear los grupos de volúmenes (VG)
+sudo vgcreate vg_datos $DISK1
+sudo vgcreate vg_temp $DISK2
 
-# --- Crear el Grupo de Volúmenes vg_datos
-echo "Creando el grupo de volúmenes 'vg_datos'..."
-sudo vgcreate vg_datos /dev/sdc1 /dev/sdd1
-echo "Grupo de volúmenes 'vg_datos' creado"
-echo
+# Crear los volúmenes lógicos (LV)
+# Ajuste de tamaños para que sean adecuados para cada uso
+sudo lvcreate -L 10G -n lv_docker vg_datos      # 10GB para Docker
+sudo lvcreate -L 1.5G -n lv_workareas vg_datos  # 1.5GB para Work Areas
+sudo lvcreate -L 512M -n lv_swap vg_temp        # 512MB para Swap
 
-# --- Crear el Grupo de Volúmenes vg_temp
-echo "Creando el grupo de volúmenes 'vg_temp'..."
-sudo vgcreate vg_temp /dev/sdd1
-echo "Grupo de volúmenes 'vg_temp' creado"
-echo
-
-# --- Crear Volúmenes Lógicos (LV)
-echo "Creando los volúmenes lógicos (LV)..."
-sudo lvcreate -L 5M -n lv_docker vg_datos
-sudo lvcreate -L 1.5G -n lv_workareas vg_datos
-sudo lvcreate -L 512M -n lv_swap vg_temp
-echo "Volúmenes lógicos creados: lv_docker, lv_workareas, lv_swap"
-echo
-
-# --- Formatear Volúmenes Lógicos
-echo "Formateando los volúmenes lógicos..."
+# Formatear los volúmenes lógicos
 sudo mkfs.ext4 /dev/vg_datos/lv_docker
 sudo mkfs.ext4 /dev/vg_datos/lv_workareas
 sudo mkswap /dev/vg_temp/lv_swap
-echo "Volúmenes lógicos formateados"
-echo
 
-# --- Montar los Volúmenes
-echo "Montando los volúmenes..."
+# Crear los directorios de montaje
+sudo mkdir -p /var/lib/docker
+sudo mkdir -p /work
+
+# Montar los volúmenes lógicos
 sudo mount /dev/vg_datos/lv_docker /var/lib/docker
 sudo mount /dev/vg_datos/lv_workareas /work
 sudo swapon /dev/vg_temp/lv_swap
-echo "Volúmenes montados: lv_docker, lv_workareas, y swap activado"
-echo
 
-# --- Verificación
-echo "Verificando el estado..."
-echo "lsblk -f"
-lsblk -f
-echo
+# Añadir las entradas a /etc/fstab para montajes automáticos
+echo "/dev/vg_datos/lv_docker /var/lib/docker ext4 defaults 0 0" | sudo tee -a /etc/fstab
+echo "/dev/vg_datos/lv_workareas /work ext4 defaults 0 0" | sudo tee -a /etc/fstab
+echo "/dev/vg_temp/lv_swap swap swap defaults 0 0" | sudo tee -a /etc/fstab
 
-echo "pvs - vgs - lvs"
-sudo pvs
-sudo vgs
-sudo lvs
-echo
-
-# --- SWAP
-echo "Estado de la swap:"
-free -h
-swapon -s
-
-# --- Montaje de los volúmenes
-echo "df -h"
-df -h
-echo
-
-# --- Comandos usados:
-echo
-echo "Comandos usados:"
-echo "sudo fdisk /dev/sdc"
-echo "sudo fdisk /dev/sdd"
-echo "sudo pvcreate /dev/sdc1 /dev/sdd1"
-echo "sudo vgcreate vg_datos /dev/sdc1 /dev/sdd1"
-echo "sudo vgcreate vg_temp /dev/sdd1"
-echo "sudo lvcreate -L 5M -n lv_docker vg_datos"
-echo "sudo lvcreate -L 1.5G -n lv_workareas vg_datos"
-echo "sudo lvcreate -L 512M -n lv_swap vg_temp"
-echo "sudo mkfs.ext4 /dev/vg_datos/lv_docker"
-echo "sudo mkfs.ext4 /dev/vg_datos/lv_workareas"
-echo "sudo mkswap /dev/vg_temp/lv_swap"
-echo "sudo mount /dev/vg_datos/lv_docker /var/lib/docker"
-echo "sudo mount /dev/vg_datos/lv_workareas /work"
-echo "sudo swapon /dev/vg_temp/lv_swap"
-echo "cat $HOME/RTA_Examen_${TIMESTAMP}/Punto_${PUNTO}.sh"
-echo
-cat $HOME/RTA_Examen_${TIMESTAMP}/Punto_${PUNTO}.sh
-echo "-------------------------------------------------------------"
-echo
+# Reiniciar Docker para asegurar que utilice el nuevo espacio
+sudo systemctl restart docker
+sudo systemctl status docker
 

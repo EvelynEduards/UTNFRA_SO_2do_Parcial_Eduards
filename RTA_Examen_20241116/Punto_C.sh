@@ -1,11 +1,5 @@
 #!/bin/bash
 
-# Mover la carpeta docker a la nueva ubicación
-mv ~/repogit/UTN-FRA_SO_Examenes/202406/docker ~/repogit/RTA_Examen_20241116/
-
-# Verificar que la carpeta se movió correctamente
-ls -l ~/repogit/RTA_Examen_20241116/
-
 # Navegar dentro de la carpeta docker
 cd ~/repogit/RTA_Examen_20241116/docker/
 
